@@ -8,10 +8,23 @@ export interface SecurityIssue {
   description: string;
 }
 
+export interface SuggestedPattern {
+  title: string;
+  explanation: string;
+  codeSnippet?: string;
+}
+
+export interface LanguageMismatch {
+  detected: string;
+  message: string;
+}
+
 export interface AnalysisResult {
   issues: SecurityIssue[];
   explanation: string;
   saferPractices: string[];
+  suggestedPattern?: SuggestedPattern | null;
+  languageMismatch?: LanguageMismatch | null;
 }
 
 interface AnalysisResultsProps {
@@ -46,6 +59,25 @@ export function AnalysisResults({ result }: AnalysisResultsProps) {
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
+      {/* Language Mismatch Warning */}
+      {result.languageMismatch && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="result-card bg-warning/10 border-warning/30 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-semibold text-warning mb-1">Language Mismatch Detected</h4>
+              <p className="text-sm text-foreground/80 leading-relaxed">
+                {result.languageMismatch.message}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Issues Section */}
       <div className="result-card p-6">
         <div className="flex items-center gap-2 mb-4">
@@ -118,6 +150,34 @@ export function AnalysisResults({ result }: AnalysisResultsProps) {
           {result.explanation}
         </p>
       </div>
+
+      {/* Suggested Safer Pattern Section */}
+      {result.suggestedPattern && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="result-card p-6 border-primary/20 bg-primary/5"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold">Suggested Safer Pattern</h3>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium text-foreground mb-1">{result.suggestedPattern.title}</h4>
+              <p className="text-sm text-muted-foreground">{result.suggestedPattern.explanation}</p>
+            </div>
+
+            {result.suggestedPattern.codeSnippet && (
+              <div className="rounded-md bg-secondary/80 border border-border/50 p-4 font-mono text-sm overflow-x-auto">
+                <pre className="text-foreground/90 whitespace-pre-wrap">{result.suggestedPattern.codeSnippet}</pre>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Safer Practices Section */}
       <div className="result-card p-6">
