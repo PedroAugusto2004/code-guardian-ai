@@ -303,7 +303,13 @@ STEP 3: If there is NO mismatch:
    - Do NOT introduce unnecessary libraries or complexity
    - Keep fixes minimal - only change what's necessary to fix the vulnerability
 
-3. CRITICAL: MATCH EXPLANATION TO VULNERABILITY TYPE:
+3. COMPLETE FIXED CODE:
+   - Provide the COMPLETE user code with the vulnerability fixed in "completeFixedCode"
+   - Include INLINE COMMENTS explaining each security fix using "// SECURITY FIX: ..." format
+   - Add import statements if new libraries are needed
+   - The complete code should be copy-paste ready
+
+4. CRITICAL: MATCH EXPLANATION TO VULNERABILITY TYPE:
    ❗ The "whyThisWorks" field MUST explain the actual mitigation mechanism for that specific vulnerability
    ❗ NEVER use generic phrases like "input validation and output encoding" for all vulnerabilities
    
@@ -317,7 +323,7 @@ STEP 3: If there is NO mismatch:
    
    - Path Traversal: "This fix validates and normalizes file paths to ensure they stay within the allowed directory, preventing attackers from accessing files outside the intended scope."
 
-4. SECURITY BOUNDARIES:
+5. SECURITY BOUNDARIES:
    - Do NOT generate exploit payloads
    - Do NOT encourage unsafe practices
    - Prefer widely accepted secure coding patterns
@@ -343,7 +349,8 @@ Return your analysis in this exact JSON structure:
     "vulnerabilityName": "Name of the vulnerability being fixed (e.g., 'Cross-Site Scripting (XSS)')",
     "whyThisWorks": "A short 2-3 sentence explanation of how this fix mitigates the vulnerability.",
     "vulnerableCode": "Extract only the relevant vulnerable lines from the user's actual code",
-    "secureCode": "Show the corrected version of those same lines"
+    "secureCode": "Show the corrected version of those same lines",
+    "completeFixedCode": "The COMPLETE user code with ALL fixes applied, including // SECURITY FIX: comments explaining each change"
   },
   "languageMismatch": {
     "detected": "The actual language of the code",
@@ -355,7 +362,8 @@ CRITICAL NOTES:
 - If NO vulnerabilities found: set "suggestedFix": null and "issues": []
 - If language mismatch: set "suggestedFix": null (do not attempt to fix mismatched code)
 - If languages match and no issues: set "languageMismatch": null
-- vulnerableCode and secureCode must use the ACTUAL variable names from the user's code
+- vulnerableCode, secureCode, and completeFixedCode must use the ACTUAL variable names from the user's code
+- completeFixedCode should be the entire user code, fully fixed, with inline // SECURITY FIX: comments
 - Always respond with valid JSON only, no markdown formatting.`;
 
 serve(async (req: Request) => {
@@ -468,7 +476,8 @@ Provide your analysis in the specified JSON format.`;
         vulnerabilityName: string;
         whyThisWorks: string;
         vulnerableCode: string | null;
-        secureCode: string | null
+        secureCode: string | null;
+        completeFixedCode: string | null;
       } | null;
       languageMismatch: { detected: string; message: string } | null;
     } = {
@@ -493,7 +502,8 @@ Provide your analysis in the specified JSON format.`;
         vulnerabilityName: aiAnalysis.suggestedFix.vulnerabilityName || analysis.issues[0]?.title || "Security Issue",
         whyThisWorks: aiAnalysis.suggestedFix.whyThisWorks || "This fix addresses the identified vulnerability.",
         vulnerableCode: aiAnalysis.suggestedFix.vulnerableCode || null,
-        secureCode: aiAnalysis.suggestedFix.secureCode || null
+        secureCode: aiAnalysis.suggestedFix.secureCode || null,
+        completeFixedCode: aiAnalysis.suggestedFix.completeFixedCode || null
       };
     } else if (analysis.issues.length > 0 && !analysis.languageMismatch) {
       // Generate a minimal fallback if AI didn't provide a fix but issues exist
@@ -502,7 +512,8 @@ Provide your analysis in the specified JSON format.`;
         vulnerabilityName: primaryIssue.title,
         whyThisWorks: `To address "${primaryIssue.title}", implement input validation, output encoding, and follow the principle of least privilege. Review the code to apply context-specific fixes.`,
         vulnerableCode: null,
-        secureCode: null
+        secureCode: null,
+        completeFixedCode: null
       };
     }
 

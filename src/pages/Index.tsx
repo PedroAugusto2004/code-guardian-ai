@@ -91,17 +91,92 @@ const Index = () => {
         whyThisWorks: fixDetails.whyThisWorks,
         vulnerableCode: fixDetails.vulnerableCode,
         secureCode: fixDetails.secureCode,
+        completeFixedCode: fixDetails.completeFixedCode,
       };
     }
 
+    // Generate completeFixedCode client-side if backend didn't provide it
+    if (enhanced.suggestedFix && !enhanced.suggestedFix.completeFixedCode && enhanced.issues && enhanced.issues.length > 0) {
+      enhanced.suggestedFix.completeFixedCode = generateCompleteFixedCode(code, enhanced.issues[0].title);
+    }
+
     return enhanced;
+  };
+
+  // Generate complete fixed code with inline security comments
+  const generateCompleteFixedCode = (code: string, issueTitle: string): string => {
+    const title = issueTitle.toLowerCase();
+    let fixedCode = code;
+
+    // SQL Injection fix
+    if (title.includes("sql") || title.includes("injection")) {
+      // Find and replace concatenated SQL queries with parameterized versions
+      fixedCode = fixedCode.replace(
+        /(const|let|var)\s+(\w+)\s*=\s*["'`]([^"'`]*SELECT[^"'`]*)["'`]\s*\+\s*(\w+)/gi,
+        (match, keyword, varName, queryPart, param) => {
+          return `// SECURITY FIX: Using parameterized query to prevent SQL injection\n  ${keyword} ${varName} = "${queryPart}?"`;
+        }
+      );
+      // Fix the db.query call
+      fixedCode = fixedCode.replace(
+        /db\.query\s*\(\s*(\w+)\s*,\s*\(/g,
+        (match, queryVar) => {
+          // Extract the parameter name from above
+          const paramMatch = code.match(/["'`][^"'`]*["'`]\s*\+\s*(\w+)/);
+          const paramName = paramMatch ? paramMatch[1] : 'userId';
+          return `db.query(${queryVar}, [${paramName}], (`;
+        }
+      );
+    }
+
+    // XSS fix
+    if (title.includes("xss") || title.includes("cross-site") || title.includes("reflected")) {
+      // Add import at the top if not present
+      if (!fixedCode.includes("escape-html") && !fixedCode.includes("escapeHtml")) {
+        fixedCode = `// SECURITY FIX: Import HTML escaping library\nimport escapeHtml from "escape-html";\n\n${fixedCode}`;
+      }
+      // Replace direct user input in responses
+      fixedCode = fixedCode.replace(
+        /res\.send\s*\(\s*["'`]([^"'`]*)["'`]\s*\+\s*(\w+)\s*\)/g,
+        (match, text, varName) => {
+          return `// SECURITY FIX: Escape user input to prevent XSS\n  res.send("${text}" + escapeHtml(${varName}))`;
+        }
+      );
+    }
+
+    // Command Injection fix
+    if (title.includes("command") || title.includes("exec") || title.includes("os")) {
+      fixedCode = fixedCode.replace(
+        /exec\s*\(\s*(\w+)\s*\)/g,
+        (match, varName) => {
+          return `// SECURITY FIX: Validate command against allowlist before execution\n  const allowedCommands = ["list", "status", "info"];\n  if (!allowedCommands.includes(${varName})) {\n    throw new Error("Command not allowed");\n  }\n  exec(${varName})`;
+        }
+      );
+    }
+
+    // Path Traversal fix
+    if (title.includes("path") || title.includes("traversal") || title.includes("directory")) {
+      // Add path import if not present
+      if (!fixedCode.includes("require('path')") && !fixedCode.includes('require("path")') && !fixedCode.includes("from 'path'")) {
+        fixedCode = `// SECURITY FIX: Import path module for safe path handling\nconst path = require("path");\nconst BASE_DIR = "/safe/base/directory";\n\n${fixedCode}`;
+      }
+      fixedCode = fixedCode.replace(
+        /fs\.(readFile|writeFile|unlink|readdir)\s*\(\s*(\w+)/g,
+        (match, method, varName) => {
+          return `// SECURITY FIX: Validate path to prevent directory traversal\n  const safePath = path.resolve(BASE_DIR, ${varName});\n  if (!safePath.startsWith(BASE_DIR)) {\n    throw new Error("Access denied: path traversal detected");\n  }\n  fs.${method}(safePath`;
+        }
+      );
+    }
+
+    return fixedCode;
   };
 
   // Get vulnerability-specific fix with correct explanation matching the mitigation mechanism
   const getVulnerabilityFix = (issueTitle: string, code: string): {
     whyThisWorks: string;
     vulnerableCode: string | null;
-    secureCode: string | null
+    secureCode: string | null;
+    completeFixedCode: string | null;
   } => {
     const title = issueTitle.toLowerCase();
 
@@ -109,7 +184,6 @@ const Index = () => {
     if (title.includes("sql") || title.includes("injection")) {
       // Try to extract the actual query from user's code
       const queryMatch = code.match(/["'`]SELECT[^"'`]+["'`]\s*\+\s*\w+/i);
-      const dbQueryMatch = code.match(/db\.query\s*\([^)]+\)/);
 
       return {
         whyThisWorks: "This fix uses a parameterized SQL query, which ensures user input is treated strictly as data rather than executable SQL. This prevents attackers from modifying the query logic through crafted input.",
@@ -117,6 +191,7 @@ const Index = () => {
           ? `const query = ${queryMatch[0]};\ndb.query(query, callback);`
           : 'const query = "SELECT * FROM users WHERE id = " + userId;\ndb.query(query, callback);',
         secureCode: 'const query = "SELECT * FROM users WHERE id = ?";\ndb.query(query, [userId], callback);',
+        completeFixedCode: null, // Let the AI generate this
       };
     }
 
@@ -128,6 +203,7 @@ const Index = () => {
         whyThisWorks: "This fix applies HTML encoding to user input before inserting it into the response. Encoding converts special characters (like <, >, &) into safe HTML entities, preventing browsers from interpreting user data as executable code.",
         vulnerableCode: sendMatch?.[0] || 'res.send("Hello " + name);',
         secureCode: 'import { escapeHtml } from "escape-html";\nres.send("Hello " + escapeHtml(name));',
+        completeFixedCode: null, // Let the AI generate this
       };
     }
 
@@ -137,6 +213,7 @@ const Index = () => {
         whyThisWorks: "This fix uses an allowlist to restrict which commands can be executed. By only permitting pre-approved operations, user input cannot be used to run arbitrary system commands.",
         vulnerableCode: 'exec(userCommand);',
         secureCode: 'const allowedCommands = ["list", "status"];\nif (allowedCommands.includes(userInput)) {\n  // Execute only pre-approved operations\n}',
+        completeFixedCode: null, // Let the AI generate this
       };
     }
 
@@ -146,6 +223,7 @@ const Index = () => {
         whyThisWorks: "This fix validates and normalizes file paths to ensure they stay within the allowed directory. Using path.resolve() and checking the prefix prevents directory traversal attacks.",
         vulnerableCode: 'fs.readFile(userPath);',
         secureCode: 'const safePath = path.resolve(baseDir, userInput);\nif (!safePath.startsWith(baseDir)) throw new Error("Invalid path");\nfs.readFile(safePath);',
+        completeFixedCode: null, // Let the AI generate this
       };
     }
 
@@ -154,6 +232,7 @@ const Index = () => {
       whyThisWorks: `Review the identified vulnerability and apply the appropriate security control. Common mitigations include input validation, parameterized queries, output encoding, or access control depending on the vulnerability type.`,
       vulnerableCode: null,
       secureCode: null,
+      completeFixedCode: null,
     };
   };
 

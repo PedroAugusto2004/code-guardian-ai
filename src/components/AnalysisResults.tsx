@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, CheckCircle, Info, ShieldCheck, Lightbulb, Search, Brain, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Info, ShieldCheck, Lightbulb, Search, Brain, CheckCircle2, Copy, Check, FileCode } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export interface SecurityIssue {
@@ -13,6 +14,7 @@ export interface SuggestedFix {
   whyThisWorks: string;
   vulnerableCode?: string | null;
   secureCode?: string | null;
+  completeFixedCode?: string | null;
 }
 
 export interface LanguageMismatch {
@@ -51,6 +53,7 @@ const severityConfig = {
 };
 
 export function AnalysisResults({ result }: AnalysisResultsProps) {
+  const [copied, setCopied] = useState(false);
   console.log("Analysis Result:", result);
   /* DEBUG: Force mock mismatch to test UI */
   // const debugResult = {
@@ -61,6 +64,14 @@ export function AnalysisResults({ result }: AnalysisResultsProps) {
   /* Use real result for now, but uncomment above lines to test locally if backend fails */
 
   const hasIssues = result.issues.length > 0;
+
+  const handleCopyCode = async () => {
+    if (result.suggestedFix?.completeFixedCode) {
+      await navigator.clipboard.writeText(result.suggestedFix.completeFixedCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   return (
     <motion.div
@@ -216,6 +227,40 @@ export function AnalysisResults({ result }: AnalysisResultsProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Complete Fixed Code Section */}
+            {result.suggestedFix.completeFixedCode && (
+              <div className="space-y-3 mt-6 pt-4 border-t border-border/30">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-primary flex items-center gap-2">
+                    <FileCode className="w-4 h-4" />
+                    Complete Secured Code (Copy & Paste Ready)
+                  </h4>
+                  <button
+                    onClick={handleCopyCode}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        Copy Code
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="rounded-lg bg-gradient-to-br from-success/5 to-primary/5 border border-success/30 p-4 font-mono text-sm overflow-x-auto">
+                  <pre className="text-foreground/90 whitespace-pre-wrap leading-relaxed">{result.suggestedFix.completeFixedCode}</pre>
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  💡 Look for <code className="text-primary">// SECURITY FIX:</code> comments in the code above to understand each change.
+                </p>
               </div>
             )}
           </div>
