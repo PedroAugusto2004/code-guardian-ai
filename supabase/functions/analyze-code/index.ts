@@ -303,7 +303,21 @@ STEP 3: If there is NO mismatch:
    - Do NOT introduce unnecessary libraries or complexity
    - Keep fixes minimal - only change what's necessary to fix the vulnerability
 
-3. SECURITY BOUNDARIES:
+3. CRITICAL: MATCH EXPLANATION TO VULNERABILITY TYPE:
+   ❗ The "whyThisWorks" field MUST explain the actual mitigation mechanism for that specific vulnerability
+   ❗ NEVER use generic phrases like "input validation and output encoding" for all vulnerabilities
+   
+   Use these EXACT explanations for common vulnerabilities:
+   
+   - SQL Injection: "This fix uses a parameterized SQL query, which ensures user input is treated strictly as data rather than executable SQL. This prevents attackers from modifying the query logic through crafted input."
+   
+   - XSS (Cross-Site Scripting): "This fix applies HTML encoding to user input before inserting it into the response. Encoding converts special characters into safe HTML entities, preventing browsers from interpreting user data as executable code."
+   
+   - Command Injection: "This fix uses an allowlist to restrict which commands can be executed. By only permitting pre-approved operations, user input cannot be used to run arbitrary system commands."
+   
+   - Path Traversal: "This fix validates and normalizes file paths to ensure they stay within the allowed directory, preventing attackers from accessing files outside the intended scope."
+
+4. SECURITY BOUNDARIES:
    - Do NOT generate exploit payloads
    - Do NOT encourage unsafe practices
    - Prefer widely accepted secure coding patterns

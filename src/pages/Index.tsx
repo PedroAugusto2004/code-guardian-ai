@@ -84,54 +84,77 @@ const Index = () => {
     // Generate fallback suggested fix if backend didn't provide one
     if (!enhanced.suggestedFix && enhanced.issues && enhanced.issues.length > 0) {
       const primaryIssue = enhanced.issues[0];
-      const fixExample = getFixExample(primaryIssue.title, code);
+      const fixDetails = getVulnerabilityFix(primaryIssue.title, code);
 
       enhanced.suggestedFix = {
         vulnerabilityName: primaryIssue.title,
-        whyThisWorks: `This fix addresses "${primaryIssue.title}" by implementing proper input validation and output encoding. These fundamental security practices prevent user-controlled data from being interpreted as code or commands.`,
-        vulnerableCode: fixExample?.vulnerableCode || null,
-        secureCode: fixExample?.secureCode || null,
+        whyThisWorks: fixDetails.whyThisWorks,
+        vulnerableCode: fixDetails.vulnerableCode,
+        secureCode: fixDetails.secureCode,
       };
     }
 
     return enhanced;
   };
 
-  // Get vulnerability-specific fix examples based on the issue type
-  const getFixExample = (issueTitle: string, code: string): { vulnerableCode: string; secureCode: string } | null => {
+  // Get vulnerability-specific fix with correct explanation matching the mitigation mechanism
+  const getVulnerabilityFix = (issueTitle: string, code: string): {
+    whyThisWorks: string;
+    vulnerableCode: string | null;
+    secureCode: string | null
+  } => {
     const title = issueTitle.toLowerCase();
 
-    // Try to extract relevant code patterns from the user's actual code
-    if (title.includes("xss") || title.includes("cross-site scripting") || title.includes("reflected")) {
-      // Look for patterns like res.send() with concatenation
-      const sendMatch = code.match(/res\.send\s*\([^)]+\)/);
-      if (sendMatch) {
-        return {
-          vulnerableCode: sendMatch[0],
-          secureCode: sendMatch[0].replace(/\+\s*\w+/, "+ escapeHtml(name)").replace("res.send", "// Use HTML escaping\nres.send"),
-        };
-      }
+    // SQL Injection - use parameterized queries explanation
+    if (title.includes("sql") || title.includes("injection")) {
+      // Try to extract the actual query from user's code
+      const queryMatch = code.match(/["'`]SELECT[^"'`]+["'`]\s*\+\s*\w+/i);
+      const dbQueryMatch = code.match(/db\.query\s*\([^)]+\)/);
+
       return {
-        vulnerableCode: 'res.send("Hello " + name);',
+        whyThisWorks: "This fix uses a parameterized SQL query, which ensures user input is treated strictly as data rather than executable SQL. This prevents attackers from modifying the query logic through crafted input.",
+        vulnerableCode: queryMatch
+          ? `const query = ${queryMatch[0]};\ndb.query(query, callback);`
+          : 'const query = "SELECT * FROM users WHERE id = " + userId;\ndb.query(query, callback);',
+        secureCode: 'const query = "SELECT * FROM users WHERE id = ?";\ndb.query(query, [userId], callback);',
+      };
+    }
+
+    // XSS - use HTML encoding/escaping explanation
+    if (title.includes("xss") || title.includes("cross-site scripting") || title.includes("reflected")) {
+      const sendMatch = code.match(/res\.send\s*\([^)]+\)/);
+
+      return {
+        whyThisWorks: "This fix applies HTML encoding to user input before inserting it into the response. Encoding converts special characters (like <, >, &) into safe HTML entities, preventing browsers from interpreting user data as executable code.",
+        vulnerableCode: sendMatch?.[0] || 'res.send("Hello " + name);',
         secureCode: 'import { escapeHtml } from "escape-html";\nres.send("Hello " + escapeHtml(name));',
       };
     }
 
-    if (title.includes("sql") || title.includes("injection")) {
+    // Command Injection - use allowlist/validation explanation
+    if (title.includes("command") || title.includes("exec") || title.includes("os")) {
       return {
-        vulnerableCode: 'query("SELECT * FROM users WHERE id = " + userId);',
-        secureCode: 'query("SELECT * FROM users WHERE id = ?", [userId]);',
-      };
-    }
-
-    if (title.includes("command") || title.includes("exec")) {
-      return {
+        whyThisWorks: "This fix uses an allowlist to restrict which commands can be executed. By only permitting pre-approved operations, user input cannot be used to run arbitrary system commands.",
         vulnerableCode: 'exec(userCommand);',
         secureCode: 'const allowedCommands = ["list", "status"];\nif (allowedCommands.includes(userInput)) {\n  // Execute only pre-approved operations\n}',
       };
     }
 
-    return null;
+    // Path Traversal - use path validation explanation
+    if (title.includes("path") || title.includes("traversal") || title.includes("directory")) {
+      return {
+        whyThisWorks: "This fix validates and normalizes file paths to ensure they stay within the allowed directory. Using path.resolve() and checking the prefix prevents directory traversal attacks.",
+        vulnerableCode: 'fs.readFile(userPath);',
+        secureCode: 'const safePath = path.resolve(baseDir, userInput);\nif (!safePath.startsWith(baseDir)) throw new Error("Invalid path");\nfs.readFile(safePath);',
+      };
+    }
+
+    // Generic fallback - but with honest explanation
+    return {
+      whyThisWorks: `Review the identified vulnerability and apply the appropriate security control. Common mitigations include input validation, parameterized queries, output encoding, or access control depending on the vulnerability type.`,
+      vulnerableCode: null,
+      secureCode: null,
+    };
   };
 
   const handleReset = () => {
