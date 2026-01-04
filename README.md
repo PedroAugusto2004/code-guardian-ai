@@ -16,6 +16,15 @@
 </p>
 
 <p align="center">
+  <a href="https://code-shield-ai-sable.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-00D9FF?style=for-the-badge" alt="Live Demo" />
+  </a>
+  <a href="https://youtu.be/8H5rtUYTVc8" target="_blank">
+    <img src="https://img.shields.io/badge/📺_Video_Presentation-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Video Presentation" />
+  </a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/React-18.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/TypeScript-5.8.3-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Vite-5.4.19-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
@@ -97,6 +106,8 @@ CodeShield AI can identify various security vulnerabilities, including:
 ---
 
 ## 🎬 Demo
+
+🔗 **[Live Demo](https://code-shield-ai-sable.vercel.app/)** | 📺 **[Video Presentation](https://youtu.be/8H5rtUYTVc8)**
 
 ### How It Works
 
@@ -187,8 +198,10 @@ The AI analysis is powered by Supabase Edge Functions. To deploy:
    ```
 
 4. **Set the required secret**
+   
+   Get your Gemini API key from [Google AI Studio](https://aistudio.google.com/):
    ```bash
-   supabase secrets set LOVABLE_API_KEY=your_lovable_api_key
+   supabase secrets set GEMINI_API_KEY=your_gemini_api_key
    ```
 
 ---
@@ -352,9 +365,9 @@ copies or substantial portions of the Software.
 ## 🙏 Acknowledgments
 
 - **MLH Hack for Hackers** - Hackathon where this project was built
-- **Google Gemini** - AI model powering the analysis
+- **Google Gemini API** - AI model powering the analysis (direct integration)
 - **shadcn/ui** - Beautiful accessible components
-- **Lovable** - Development platform and AI gateway
+- **Supabase** - Backend-as-a-Service for Edge Functions
 
 ---
 
